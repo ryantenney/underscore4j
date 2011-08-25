@@ -5,24 +5,21 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.json.JSONObject;
 import org.junit.Test;
 
 import static org.hamcrest.Matchers.*;
 
-import us.t4y.underscore.fn.EachFn;
-import us.t4y.underscore.fn.FilterFn;
-import us.t4y.underscore.fn.MapFn;
+import us.t4y.underscore.fn.*;
 
 public class Tests {
 
-	private FilterFn<Object, Integer, Object> evenFilter = new FilterFn<Object, Integer, Object>() {
-		public boolean call(Integer value, Object key, Object obj) {
+	private Fn3<Boolean, Integer, Object, Object> evenFilter = new Fn1<Boolean, Integer>() {
+		public Boolean call(Integer value) {
 			return value % 2 == 0;
 		}
 	};
 
-	private FilterFn<Object, Integer, Object> oddFilter = invert(evenFilter);
+	private Fn3<Boolean, Integer, Object, Object> oddFilter = invert(evenFilter);
 
 	public class PluckInvokeTest {
 		private int i;
@@ -37,9 +34,9 @@ public class Tests {
 		}
 	}
 
-	public static <K, V, O> FilterFn<K, V, O> invert(final FilterFn<K, V, O> fn) {
-		return new FilterFn<K, V, O>() {
-			public boolean call(V value, K key, O obj) {
+	public static <V, K, O> Fn3<Boolean, V, K, O> invert(final Fn3<Boolean, V, K, O> fn) {
+		return new Fn3<Boolean, V, K, O>() {
+			public Boolean call(V value, K key, O obj) {
 				return !fn.call(value, key, obj);
 			}
 		};
@@ -49,26 +46,25 @@ public class Tests {
 	@Test
 	public void main() {
 
-		final Integer[] oneToTen = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+		Integer[] oneToTen = _.range(0, 10).asArray();
+		final Map<String, Integer> m = new LinkedHashMap<String, Integer>();
 
-		Map<String, Integer> m = new LinkedHashMap<String, Integer>();
-		m.put("a", 1);
-		m.put("b", 2);
-		m.put("c", 3);
-		m.put("d", 4);
-		m.put("e", 5);
+		print("a-e", _.range('a', 'e'));
+		_.each(_.range('a', 'e'), new VoidFn2<Character, Integer>() {
+			public void call(Character chr, Integer ndx) {
+				m.put(chr.toString(), ndx + 1);
+			}
+		});
 
-		Map<String, PluckInvokeTest> p = _.map(m, new MapFn<String, Integer, Map<String, Integer>, PluckInvokeTest>() {
-			public PluckInvokeTest call(Integer value, String key, Map<String, Integer> obj) {
+		Map<String, PluckInvokeTest> p = _.map(m, new Fn1<PluckInvokeTest, Integer>() {
+			public PluckInvokeTest call(Integer value) {
 				return new PluckInvokeTest(value);
 			}
 		});
 
-		Collection<PluckInvokeTest> pv = p.values();
-		print(Arrays.toString(_.pluck(pv, "indexValue").toArray()));
-		print(Arrays.toString(_.invoke(pv, "addedTo", 2).toArray()));
-
-		JSONObject j = new JSONObject(m);
+		Collection<PluckInvokeTest> pv = _.values(p);
+		print(_.pluck(pv, "indexValue", String.class));
+		print(_.invoke(pv, "addedTo", Integer.class, 2));
 
 		print("Any 0", _.any(m, equalTo(0)));
 		print("Any 1", _.any(m, equalTo(1)));
@@ -107,45 +103,35 @@ public class Tests {
 		print("All 1-4", _.all(m, allOf(greaterThanOrEqualTo(1), lessThanOrEqualTo(4))));
 		print("All 0-7", _.all(m, allOf(greaterThanOrEqualTo(0), lessThanOrEqualTo(7))));
 
-		_.each(m, new EachFn<String, Integer, Map<String, Integer>>() {
-			public void call(Integer val, String str, Map<String, Integer> obj) {
+		_.each(m, new VoidFn2<Integer, String>() {
+			public void call(Integer val, String str) {
 				print("ndx " + str + ": " + val);
 			}
 		});
 
-		Map<String, Double> d = _.map(m, new MapFn<String, Integer, Map<String, Integer>, Double>() {
-			public Double call(Integer value, String key, Map<String, Integer> obj) {
+		Map<String, Double> d = _.map(m, new Fn1<Double, Integer>() {
+			public Double call(Integer value) {
 				return (double) value / 10.0;
 			}
 		});
 
 		print("All 0-1: " + _.all(d, allOf(greaterThanOrEqualTo(0.0), lessThanOrEqualTo(1.0))));
 
-		_.each(d, new EachFn<String, Double, Map<String, Double>>() {
-			public void call(Double val, String str, Map<String, Double> obj) {
+		VoidFn3<Double, String, Object> printFn = new VoidFn2<Double, String>() {
+			public void call(Double val, String str) {
 				print("ndx " + str + ": " + val);
 			}
-		});
+		};
 
-		_.each(d, new EachFn<String, Double, Map<String, Double>>() {
-			public void call(Double val, String str, Map<String, Double> obj) {
-				print("ndx " + str + ": " + val);
-			}
-		});
-
-		_.each(d, new EachFn<String, Double, Map<String, Double>>() {
-			public void call(Double val, String str, Map<String, Double> obj) {
-				print("ndx " + str + ": " + val);
-			}
-		});
+		_.each(d, printFn);
 	}
 
 	@Test
 	public void methods() {
 		Collection<String> m = _.functions(_.class);
-		_.each(m, new EachFn<Integer, String, Collection<String>>() {
-			public void call(String val, Integer str, Collection<String> obj) {
-				print("ndx " + str + ": " + val);
+		_.each(m, new VoidFn2<String, Integer>() {
+			public void call(String name, Integer ndx) {
+				print("ndx " + ndx + ": " + name);
 			}
 		});
 	}
@@ -156,6 +142,10 @@ public class Tests {
 
 	static void print(String s, Object[] o) {
 		print(s, Arrays.toString(o));
+	}
+
+	static void print(String s, Range<?, ?> o) {
+		print(s, Arrays.toString(o.asArray()));
 	}
 
 	static void print(Collection<?> c) {
